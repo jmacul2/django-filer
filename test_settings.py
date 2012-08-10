@@ -1,15 +1,14 @@
 #-*- coding: utf-8 -*-
 import os
 DEBUG = True
-PACKAGE_ROOT = os.path.abspath( os.path.join(os.path.dirname(__file__), '../') )
-PROJECT_ROOT = os.path.join(PACKAGE_ROOT, 'project')
+PACKAGE_ROOT = os.path.abspath( os.path.dirname(__file__) )
 TMP_ROOT = os.path.abspath( os.path.join(PACKAGE_ROOT, 'tmp') )
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': os.path.join(TMP_ROOT,'filer_test.sqlite3'),
-    },
-}
+        },
+    }
 INSTALLED_APPS = [
     'filer',
     'mptt',
@@ -18,20 +17,13 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.admin',
     'django.contrib.sessions',
-    'django_jenkins',
+    'django.contrib.staticfiles',
 ]
-ROOT_URLCONF = 'project.urls'
+
+ROOT_URLCONF = 'test_urls'
 
 MEDIA_ROOT = os.path.abspath( os.path.join(TMP_ROOT, 'media') )
 MEDIA_URL = '/media/'
 STATIC_URL = '/static/'
 
-# django-jenkins settings
-PROJECT_APPS = ['filer'] # list of apps to run tests for
-JENKINS_TASKS = (
-        #'django_jenkins.tasks.run_pylint',
-        #'django_jenkins.tasks.run_pep8',
-        'django_jenkins.tasks.with_coverage',
-        'django_jenkins.tasks.django_tests',
-)
-COVERAGE_RCFILE = '.coveragerc'
+USE_TZ = False  # because of a bug in easy-thumbnails 1.0.3

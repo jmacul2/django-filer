@@ -1,124 +1,59 @@
 #!/bin/bash
-# TODO: currently the $suite, $failfast and --with-coverage are ignored
 
-find . -name '*.pyc' -delete
-
-cd tests
-
-sigfile=.buildoutsig
-
+extra=""
+django="13"
 args=("$@")
 num_args=${#args[@]}
 index=0
-
-reuse_env=true
-disable_coverage=true
-django=13
-
-python="python" # to ensure this script works if no python option is specified
 while [ "$index" -lt "$num_args" ]
 do
     case "${args[$index]}" in
-        "-f"|"--failfast")
-            failfast="--failfast"
-            ;;
-
-        "-r"|"--rebuild-env")
-            reuse_env=false
-            ;;
-
-        "-c"|"--with-coverage")
-            disable_coverage=false
-            ;;
-         
         "-d"|"--django")
             let "index = $index + 1"
             django="${args[$index]}"
-            ;;
-        
-        "-p"|"--python")
-            let "index = $index + 1"
-            python="${args[$index]}"
             ;;
 
         "-h"|"--help")
             echo ""
             echo "usage:"
             echo "    runtests.sh"
-            echo "    or runtests.sh [testcase]"
-            echo "    or runtests.sh [flags] [testcase]"
+            echo "    or runtests.sh [-d <version>|--django <version>] [test arguments]"
             echo ""
             echo "flags:"
-            echo "    -f, --failfast - abort at first failing test"
-            echo "    -c, --with-coverage - enables coverage"
-            echo "    -r, --rebuild-env - run buildout before the tests"
-            echo "    -d, --django <version> - run tests against a django version, options: 124, 125, 13 or trunk"
-            echo "    -p, --python /path/to/python - python version to use to run the tests"
-            echo "    -h, --help - display this help"
+            echo "    -d, --django <version> - run tests against a django version, options: 13 or 14"
+            echo ""
+            echo "test arguments:"
+            echo "    any other argument is passed to setup.py test command for further evaluation"
             exit 1
             ;;
 
         *)
-            suite="filer.${args[$index]}"
+            extra="$extra ${args[$index]}"
     esac
     let "index = $index + 1"
 done
 
-echo "using python at: $python"
+read -r -p "This will install dependencies and run the testsuite. Please make sure you are in a virtualenv! Continue? [Y/n]" response
+case $response in
+	[yY]|[eE]|[sS]|[yY])
+		;;
+	*)
+		echo "cancelled"
+		exit
+		;;
+esac
 
-sig="py:$python;dj:$django$"
+find . -name '*.pyc' -delete
 
-oldsig="nosig"
-
-if [ -f $sigfile ]; then
-    oldsig=`cat $sigfile`
+if [ $django == "13" ]; then
+    export DJANGO="django>=1.3,<1.4"
+fi
+if [ $django == "14" ]; then
+    export DJANGO="django>=1.4,<1.5"
+fi
+if [ $django == "dev" ]; then
+    export DJANGO="-e git+git://github.com/django/django.git#egg=Django"
 fi
 
-if [ "$oldsig" != "$sig" ]; then
-    reuse_env=false
-fi
-
-echo $sig > $sigfile
-
-if [ $reuse_env == false ]; then
-    echo "setting up test environment (this might take a while)..."
-    $python bootstrap.py
-    if [ $? != 0 ]; then
-        echo "bootstrap.py failed"
-        exit 1
-    fi
-    ./bin/buildout -c "django-$django.cfg"
-    ./bin/buildout -c "django-$django.cfg"
-    if [ $? != 0 ]; then
-        echo "bin/buildout failed"
-        exit 1
-    fi
-else
-    echo "reusing current buildout environment"
-fi
-
-if [ "$failfast" ]; then
-    echo "--failfast supplied, not using xmlrunner."
-fi
-
-if [ ! "$suite" ]; then
-    suite="filer"
-    echo "Running complete filer testsuite."
-else
-    echo "Running filer test $suite."
-fi
-
-if [ $disable_coverage == false ]; then
-    ./bin/coverage run --rcfile=.coveragerc project/manage.py test $suite $failfast
-    retcode=$?
-
-    echo "Post test actions..."
-    ./bin/coverage xml
-    ./bin/coverage html
-else
-    ./bin/django jenkins
-    retcode=$?
-fi
-cd ..
-echo "done"
-exit $retcode
+./.travis_setup
+python setup.py test $extra
